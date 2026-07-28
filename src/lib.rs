@@ -1,4 +1,2 @@
 pub mod server;
 pub mod tui;
-
-fn main() {}
