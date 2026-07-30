@@ -15,6 +15,16 @@ pub enum Level {
     Hard,
 }
 
+impl Level {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Level::Easy => "easy",
+            Level::Medium => "medium",
+            Level::Hard => "hard",
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct ProblemFromLeetcode {
     #[serde(rename = "questionFrontendId")]
@@ -65,4 +75,17 @@ pub struct DashboardCard {
     pub stability: f64,
     pub difficulty: f64,
     pub due_date: NaiveDateTime,
+}
+
+impl DashboardCard {
+    pub fn as_array(&self) -> Vec<String> {
+        vec![
+            self.frontend_id.clone(),
+            self.title.clone(),
+            self.topic_tag.clone(),
+            self.level.as_str().to_string(),
+            self.stability.to_string(),
+            self.due_date.to_string(),
+        ]
+    }
 }
