@@ -4,7 +4,7 @@ pub mod footer;
 pub mod stats;
 pub mod table;
 
-fn area(area: Rect) -> (Rect, Rect, Rect) {
+pub fn area(area: Rect) -> (Rect, Rect, Rect) {
     let [stats, table, footer] = Layout::vertical([
         Constraint::Length(10),
         Constraint::Min(0),

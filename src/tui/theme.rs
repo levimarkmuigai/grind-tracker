@@ -9,7 +9,7 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            bg: tailwind::GRAY.c950,
+            bg: tailwind::ZINC.c400,
             highlight: tailwind::GRAY.c500,
             ink: tailwind::NEUTRAL.c100,
         }
