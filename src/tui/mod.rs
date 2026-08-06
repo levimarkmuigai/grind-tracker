@@ -1,7 +1,7 @@
 use ratatui::{Frame, crossterm::event, widgets::TableState};
 
 use crate::{
-    server::actors::DashboardCard,
+    server::actors::TableData,
     tui::{handler::AppAction, terminal::Tui, theme::Theme},
 };
 
@@ -12,17 +12,17 @@ pub mod theme;
 pub mod ui;
 
 pub struct AppState {
-    pub data: Vec<DashboardCard>,
+    pub table_data: Vec<TableData>,
     pub table_state: TableState,
     pub should_quit: bool,
 }
 
 impl AppState {
-    pub fn new(data: Vec<DashboardCard>) -> Self {
+    pub fn new(table_data: Vec<TableData>) -> Self {
         let mut table = TableState::default();
 
         Self {
-            data,
+            table_data,
             table_state: table,
             should_quit: false,
         }

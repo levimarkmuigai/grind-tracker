@@ -1,10 +1,10 @@
 use grind_tracker::{
-    server::actors::DashboardCard,
+    server::actors::TableData,
     tui::{self, terminal},
 };
 
 fn main() -> color_eyre::Result<()> {
-    let data: Vec<DashboardCard> = vec![];
+    let data: Vec<TableData> = vec![];
 
     let state = tui::AppState::new(data);
 

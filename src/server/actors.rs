@@ -66,26 +66,24 @@ pub struct FsrsCard {
 }
 
 #[derive(Debug, PartialEq, Serialize)]
-pub struct DashboardCard {
-    pub problem_id: i64,
-    pub title: String,
+pub struct TableData {
     pub frontend_id: String,
-    pub topic_tag: String,
-    pub level: Level,
-    pub stability: f64,
-    pub difficulty: f64,
-    pub due_date: NaiveDateTime,
+    pub title: String,
+    pub diff: Level,
+    pub topic: String,
+    pub state: i64,
+    pub due: NaiveDateTime,
 }
 
-impl DashboardCard {
+impl TableData {
     pub fn as_array(&self) -> Vec<String> {
         vec![
             self.frontend_id.clone(),
             self.title.clone(),
-            self.topic_tag.clone(),
-            self.level.as_str().to_string(),
-            self.stability.to_string(),
-            self.due_date.to_string(),
+            self.diff.as_str().to_string(),
+            self.topic.clone(),
+            self.state.to_string(),
+            self.due.to_string(),
         ]
     }
 }

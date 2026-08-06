@@ -1,7 +1,7 @@
 use sqlx::SqlitePool;
 
 use crate::server::{
-    actors::{DashboardCard, FsrsCard, LeetcodeProblem, Level},
+    actors::{FsrsCard, LeetcodeProblem, Level, TableData},
     error::ServerError,
 };
 
@@ -51,13 +51,13 @@ pub async fn fetch_problem_by_id(
 ) -> Result<LeetcodeProblem, ServerError> {
     Ok(sqlx::query_as!(
         LeetcodeProblem,
-        r#"SELECT 
-            id, 
-            frontend_id AS "frontend_id!", 
-            title AS "title!", 
-            slug AS "slug!", 
-            topic_tag AS "topic_tag!", 
-            level AS "level!: Level" 
+        r#"SELECT
+            id,
+            frontend_id AS "frontend_id!",
+            title AS "title!",
+            slug AS "slug!",
+            topic_tag AS "topic_tag!",
+            level AS "level!: Level"
         FROM leetcode_problems WHERE id = $1"#,
         id,
     )
@@ -137,20 +137,16 @@ pub async fn fetch_all_cards(pool: &SqlitePool) -> Result<Vec<FsrsCard>, ServerE
     Ok(cards)
 }
 
-pub async fn fetch_all_dashboard_cards(
-    pool: &SqlitePool,
-) -> Result<Vec<DashboardCard>, ServerError> {
+pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, ServerError> {
     Ok(sqlx::query_as!(
-        DashboardCard,
+        TableData,
         r#"SELECT
-            p.id AS "problem_id!",
-            p.title AS "title!",
             p.frontend_id AS "frontend_id!",
-            p.topic_tag AS "topic_tag!",
-            p.level AS "level!: Level",
-            f.stability AS "stability!",
-            f.difficulty AS "difficulty!",
-            f.due_date AS "due_date!: chrono::NaiveDateTime"
+            p.title AS "title",
+            p.topic_tag AS "topic!",
+            p.level AS "diff!: Level",
+            f.state AS "state!",
+            f.due_date AS "due!: chrono::NaiveDateTime"
             FROM leetcode_problems p
             JOIN fsrs_cards f ON f.problem_id = p.id
             "#
