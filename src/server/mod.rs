@@ -49,5 +49,6 @@ async fn signal() {
 fn build_router(pool: SqlitePool) -> Router {
     Router::new()
         .route("/api/dashboard", get(api::get_dashboard))
+        .route("/api/stats", get(api::get_stat_cards_data))
         .with_state(pool)
 }

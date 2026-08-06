@@ -87,3 +87,10 @@ impl TableData {
         ]
     }
 }
+
+#[derive(Debug, PartialEq, Serialize)]
+pub struct Stats {
+    pub due_today: i64,
+    pub reviewed: i64,
+    pub streak: i64,
+}

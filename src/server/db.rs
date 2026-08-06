@@ -1,3 +1,5 @@
+use anyhow::Result;
+use chrono::NaiveDate;
 use sqlx::SqlitePool;
 
 use crate::server::{
@@ -153,4 +155,29 @@ pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, Serve
     )
     .fetch_all(pool)
     .await?)
+}
+
+pub async fn fetch_due_today_reviewed(pool: &SqlitePool) -> Result<(i64, i64), ServerError> {
+    let (due_today, reviewed): (i64, i64) = sqlx::query_as(
+        r#"
+    SELECT COUNT(*) FROM fsrs_cards WHERE DATE(due_date) <= DATE('now', 'localtime'),
+    SELECT COUNT(*) FROM review_log WHERE DATE(last_sync_at) = DATE('now', 'localtime')
+        "#,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok((due_today, reviewed))
+}
+
+pub async fn fetch_streak_dates(pool: &SqlitePool) -> Result<Vec<NaiveDate>, ServerError> {
+    let dates: Vec<NaiveDate> = sqlx::query_scalar::<_, NaiveDate>(
+        r#"
+    SELECT DISTINCT DATE(reviewed_at) FROM review_log  ORDER BY DATE(reviewed_at) DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(dates)
 }
