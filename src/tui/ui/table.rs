@@ -39,7 +39,7 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
                 Cell::from(x.frontend_id.clone()),
                 Cell::from(trancate(&x.title, 32)),
                 Cell::from(x.diff.as_str().to_string()).style(diff_style),
-                Cell::from(trancate(&x.topic, 24)),
+                Cell::from(trancate(&x.topic, 88)),
                 Cell::from(state_label).style(state_style),
                 Cell::from(format_due_date(x.due)).style(due_style),
             ])
@@ -47,11 +47,11 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
         .collect();
 
     let widths = [
-        Constraint::Length(5),
-        Constraint::Fill(1),
-        Constraint::Length(7),
-        Constraint::Fill(1),
         Constraint::Length(8),
+        Constraint::Length(34),
+        Constraint::Length(8),
+        Constraint::Length(88),
+        Constraint::Length(10),
         Constraint::Length(9),
     ];
 
@@ -75,8 +75,8 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
 
 fn state_style(state: i64, theme: &Theme) -> (&'static str, Style) {
     match state {
-        0 => ("new", Style::new().fg(theme.ink)),
-        1 => ("learning", Style::new().fg(theme.ink)),
+        0 => ("new", Style::new().fg(theme.ink).bold()),
+        1 => ("learning", Style::new().fg(theme.ink).bold()),
         2 => ("review", Style::new().fg(theme.blue_ink)),
         3 => ("relearn", Style::new().fg(theme.red_ink)),
         _ => ("?", Style::new().fg(theme.ink)),
@@ -87,7 +87,7 @@ fn format_due_date(due: NaiveDateTime) -> String {
     let now = Utc::now().naive_utc();
     let delta = due.signed_duration_since(now);
     match delta.num_hours() {
-        h if h < 0 => format!("- {}d", -delta.num_days().max(1)),
+        h if h < 0 => format!("{}d", -delta.num_days().max(1)),
         h if h < 24 => "today".into(),
         h => format!("in {}d", h / 24),
     }

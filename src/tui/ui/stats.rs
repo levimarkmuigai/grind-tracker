@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::tui::{AppState, theme::Theme};
 
-pub fn render_stats(frame: &mut Frame, area: Rect, _state: &mut AppState, theme: &Theme) {
+pub fn render_stats(frame: &mut Frame, area: Rect, state: &mut AppState, theme: &Theme) {
     let [due_tody, reviewed, streak] = Layout::horizontal([
         Constraint::Fill(1),
         Constraint::Fill(1),
@@ -22,19 +22,27 @@ pub fn render_stats(frame: &mut Frame, area: Rect, _state: &mut AppState, theme:
         .border_type(BorderType::Rounded)
         .border_style(Style::new().fg(theme.bg));
 
+    let stats = state.cards_data.clone();
+
     let due_date_text = vec![
         Line::from(Span::styled("due today", Style::new().fg(theme.ink))),
-        Line::from(Span::styled("5", Style::new().fg(theme.ink)).bold()),
+        Line::from(Span::styled(stats.reviewed.to_string(), Style::new().fg(theme.ink)).bold()),
     ];
 
     let reviewed_text = vec![
         Line::from(Span::styled("reviewed", Style::new().fg(theme.ink))),
-        Line::from(Span::styled("3", Style::new().fg(theme.ink)).bold()),
+        Line::from(Span::styled(stats.reviewed.to_string(), Style::new().fg(theme.ink)).bold()),
     ];
+
+    let streak_string = if stats.streak == 1 {
+        format!("{} day", stats.reviewed)
+    } else {
+        format!("{} days", stats.reviewed)
+    };
 
     let streak_text = vec![
         Line::from(Span::styled("streak", Style::new().fg(theme.ink))),
-        Line::from(Span::styled("4 d", Style::new().fg(theme.ink)).bold()),
+        Line::from(Span::styled(streak_string, Style::new().fg(theme.ink)).bold()),
     ];
 
     let cards = [

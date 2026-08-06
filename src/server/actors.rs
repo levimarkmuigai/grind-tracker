@@ -88,7 +88,7 @@ impl TableData {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize, Clone)]
 pub struct Stats {
     pub due_today: i64,
     pub reviewed: i64,
