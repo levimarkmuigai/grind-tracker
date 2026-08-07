@@ -21,6 +21,8 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
         .bold()
         .height(1);
 
+    let now = Utc::now().naive_utc();
+
     let rows: Vec<Row> = state
         .table_data
         .iter()
@@ -33,15 +35,15 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
 
             let (state_label, state_style) = state_style(x.state, theme);
 
-            let due_style = due_date_style(x.due, theme);
+            let due_style = due_date_style(x.due, now, theme);
 
             Row::new(vec![
                 Cell::from(x.frontend_id.clone()),
-                Cell::from(trancate(&x.title, 32)),
+                Cell::from(truncate(&x.title, 32)),
                 Cell::from(x.diff.as_str().to_string()).style(diff_style),
-                Cell::from(trancate(&x.topic, 88)),
+                Cell::from(truncate(&x.topic, 88)),
                 Cell::from(state_label).style(state_style),
-                Cell::from(format_due_date(x.due)).style(due_style),
+                Cell::from(format_due_date(x.due, now)).style(due_style),
             ])
         })
         .collect();
@@ -83,8 +85,7 @@ fn state_style(state: i64, theme: &Theme) -> (&'static str, Style) {
     }
 }
 
-fn format_due_date(due: NaiveDateTime) -> String {
-    let now = Utc::now().naive_utc();
+fn format_due_date(due: NaiveDateTime, now: NaiveDateTime) -> String {
     let delta = due.signed_duration_since(now);
     match delta.num_hours() {
         h if h < 0 => format!("{}d", -delta.num_days().max(1)),
@@ -93,15 +94,15 @@ fn format_due_date(due: NaiveDateTime) -> String {
     }
 }
 
-fn due_date_style(due: NaiveDateTime, theme: &Theme) -> Style {
-    if due < Utc::now().naive_utc() {
+fn due_date_style(due: NaiveDateTime, now: NaiveDateTime, theme: &Theme) -> Style {
+    if due < now {
         Style::new().fg(theme.red_ink).add_modifier(Modifier::BOLD)
     } else {
         Style::new().fg(theme.ink)
     }
 }
 
-fn trancate(s: &str, max_len: usize) -> String {
+fn truncate(s: &str, max_len: usize) -> String {
     if s.chars().count() <= max_len {
         s.to_string()
     } else {
