@@ -7,10 +7,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, Row, Table},
 };
 
-use crate::{
-    server::actors::Level,
-    tui::{AppState, theme::Theme},
-};
+use crate::tui::{AppState, seeder::Level, theme::Theme};
 
 pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: &Theme) {
     let header = ["id", "title", "diff", "topics", "state", "due"]
@@ -39,9 +36,9 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
 
             Row::new(vec![
                 Cell::from(x.frontend_id.clone()),
-                Cell::from(truncate(&x.title, 32)),
+                Cell::from(truncate(&x.title, 45)),
                 Cell::from(x.diff.as_str().to_string()).style(diff_style),
-                Cell::from(truncate(&x.topic, 88)),
+                Cell::from(truncate(&x.topic, 60)),
                 Cell::from(state_label).style(state_style),
                 Cell::from(format_due_date(x.due, now)).style(due_style),
             ])
@@ -49,12 +46,12 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
         .collect();
 
     let widths = [
-        Constraint::Length(8),
-        Constraint::Length(34),
-        Constraint::Length(8),
-        Constraint::Length(88),
-        Constraint::Length(10),
         Constraint::Length(9),
+        Constraint::Length(47),
+        Constraint::Length(9),
+        Constraint::Length(62),
+        Constraint::Length(11),
+        Constraint::Length(10),
     ];
 
     let pointer = "▶ ";

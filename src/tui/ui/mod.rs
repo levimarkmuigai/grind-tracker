@@ -1,6 +1,7 @@
 use ratatui::layout::{Constraint, Layout, Rect};
 
 pub mod footer;
+pub mod review;
 pub mod stats;
 pub mod table;
 

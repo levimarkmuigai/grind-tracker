@@ -143,11 +143,14 @@ pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, Serve
     Ok(sqlx::query_as!(
         TableData,
         r#"SELECT
+        p.id AS "problem_id",
             p.frontend_id AS "frontend_id!",
             p.title AS "title",
             p.topic_tag AS "topic!",
             p.level AS "diff!: Level",
             f.state AS "state!",
+            f.reps AS "reps",
+            f.lapses AS "lapses",
             f.due_date AS "due!: chrono::NaiveDateTime"
             FROM leetcode_problems p
             JOIN fsrs_cards f ON f.problem_id = p.id
@@ -160,8 +163,9 @@ pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, Serve
 pub async fn fetch_due_today_reviewed(pool: &SqlitePool) -> Result<(i64, i64), ServerError> {
     let (due_today, reviewed): (i64, i64) = sqlx::query_as(
         r#"
-    SELECT COUNT(*) FROM fsrs_cards WHERE DATE(due_date) <= DATE('now', 'localtime'),
-    SELECT COUNT(*) FROM review_log WHERE DATE(last_sync_at) = DATE('now', 'localtime')
+        SELECT
+        (SELECT COUNT(*) FROM fsrs_cards WHERE DATE(due_date) <= DATE('now', 'localtime')),
+        (SELECT COUNT(*) FROM review_log WHERE DATE(reviewed_at) = DATE('now', 'localtime'))
         "#,
     )
     .fetch_one(pool)

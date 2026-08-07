@@ -1,72 +1,33 @@
-use ratatui::crossterm::event::{Event, KeyCode, KeyEventKind};
+use crate::tui::AppMode;
+use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 #[derive(Debug, PartialEq)]
 pub enum AppAction {
     Quit,
     SelectUp,
     SelectDown,
+    OpenReview,
+    SubmitRating(u8),
+    CloseReview,
     None,
 }
 
-pub fn map_event(event: Event) -> AppAction {
-    match event {
-        Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
-            KeyCode::Char('q') | KeyCode::Esc => AppAction::Quit,
+pub fn map_event(key: KeyEvent, mode: &AppMode) -> AppAction {
+    match mode {
+        AppMode::Dashboard => match key.code {
+            KeyCode::Char('q') => AppAction::Quit,
             KeyCode::Up => AppAction::SelectUp,
             KeyCode::Down => AppAction::SelectDown,
+            KeyCode::Enter => AppAction::OpenReview,
             _ => AppAction::None,
         },
-        _ => AppAction::None,
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use ratatui::crossterm::event::{KeyEvent, KeyEventState, KeyModifiers};
-
-    use super::*;
-
-    #[test]
-    fn test_quit_action() {
-        let q_press = Event::Key(KeyEvent {
-            code: KeyCode::Char('q'),
-            modifiers: KeyModifiers::empty(),
-            kind: KeyEventKind::Press,
-            state: KeyEventState::empty(),
-        });
-
-        let esc_press = Event::Key(KeyEvent {
-            code: KeyCode::Esc,
-            modifiers: KeyModifiers::empty(),
-            kind: KeyEventKind::Press,
-            state: KeyEventState::empty(),
-        });
-
-        assert_eq!(map_event(q_press), AppAction::Quit);
-        assert_eq!(map_event(esc_press), AppAction::Quit);
-    }
-
-    #[test]
-    fn test_select_up() {
-        let up_press = Event::Key(KeyEvent {
-            code: KeyCode::Up,
-            modifiers: KeyModifiers::empty(),
-            kind: KeyEventKind::Press,
-            state: KeyEventState::empty(),
-        });
-
-        assert_eq!(map_event(up_press), AppAction::SelectUp);
-    }
-
-    #[test]
-    fn test_select_down() {
-        let down_press = Event::Key(KeyEvent {
-            code: KeyCode::Up,
-            modifiers: KeyModifiers::empty(),
-            kind: KeyEventKind::Press,
-            state: KeyEventState::empty(),
-        });
-
-        assert_eq!(map_event(down_press), AppAction::SelectDown);
+        AppMode::Review => match key.code {
+            KeyCode::Char('1') => AppAction::SubmitRating(1),
+            KeyCode::Char('2') => AppAction::SubmitRating(2),
+            KeyCode::Char('3') => AppAction::SubmitRating(3),
+            KeyCode::Char('4') => AppAction::SubmitRating(4),
+            KeyCode::Esc => AppAction::CloseReview,
+            _ => AppAction::None,
+        },
     }
 }

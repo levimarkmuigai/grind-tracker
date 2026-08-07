@@ -22,7 +22,7 @@ pub fn render_stats(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
         .border_type(BorderType::Rounded)
         .border_style(Style::new().fg(theme.bg));
 
-    let stats = state.cards_data.clone();
+    let stats = state.stats.clone();
 
     let due_date_text = vec![
         Line::from(Span::styled("due today", Style::new().fg(theme.ink))),

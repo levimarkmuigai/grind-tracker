@@ -7,7 +7,7 @@ pub struct TopicTag {
     pub name: String,
 }
 
-#[derive(Debug, PartialEq, Deserialize, Serialize, Type)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize, Type)]
 #[sqlx(type_name = "Text", rename_all = "PascalCase")]
 pub enum Level {
     Easy,
@@ -65,27 +65,17 @@ pub struct FsrsCard {
     pub last_sync: NaiveDateTime,
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct TableData {
+    pub problem_id: i64,
     pub frontend_id: String,
     pub title: String,
     pub diff: Level,
     pub topic: String,
     pub state: i64,
     pub due: NaiveDateTime,
-}
-
-impl TableData {
-    pub fn as_array(&self) -> Vec<String> {
-        vec![
-            self.frontend_id.clone(),
-            self.title.clone(),
-            self.diff.as_str().to_string(),
-            self.topic.clone(),
-            self.state.to_string(),
-            self.due.to_string(),
-        ]
-    }
+    pub reps: i64,
+    pub lapses: i64,
 }
 
 #[derive(Debug, PartialEq, Serialize, Clone)]
