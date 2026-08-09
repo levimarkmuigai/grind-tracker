@@ -5,14 +5,14 @@ use ratatui::{
 };
 
 use crate::tui::{
+    client::{Stats, TableData},
     handler::AppAction,
-    seeder::{Stats, TableData},
     terminal::Tui,
     theme::Theme,
 };
 
+pub mod client;
 pub mod handler;
-pub mod seeder;
 pub mod terminal;
 pub mod theme;
 pub mod ui;

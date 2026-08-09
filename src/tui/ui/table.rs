@@ -7,7 +7,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, Row, Table},
 };
 
-use crate::tui::{AppState, seeder::Level, theme::Theme};
+use crate::tui::{AppState, client::Level, theme::Theme};
 
 pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: &Theme) {
     let header = ["id", "title", "diff", "topics", "state", "due"]

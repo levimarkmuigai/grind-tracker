@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::tui::{
-    seeder::{Level, TableData},
+    client::{Level, TableData},
     theme::Theme,
 };
 

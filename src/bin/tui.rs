@@ -1,7 +1,9 @@
-use grind_tracker::tui::{self, seeder, terminal};
+use grind_tracker::tui::{self, client::Api, terminal};
 
 fn main() -> color_eyre::Result<()> {
-    let (table_data, stats) = seeder::seed_dash_data()?;
+    let api = Api::new()?;
+
+    let (table_data, stats) = api.seed_dash_data()?;
 
     let state = tui::AppState::new(table_data, stats);
 
