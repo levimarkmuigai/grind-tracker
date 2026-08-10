@@ -9,7 +9,17 @@ pub enum AppAction {
     OpenReview,
     SubmitRating(u8),
     CloseReview,
+    ReviewSubmitted,
+    ShowToast { message: String, kind: ToastKind },
+    ClearToast,
     None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToastKind {
+    Info,
+    Success,
+    Error,
 }
 
 pub fn map_event(key: KeyEvent, mode: &AppMode) -> AppAction {

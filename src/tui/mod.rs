@@ -1,3 +1,5 @@
+use std::sync::mpsc::{Receiver, Sender};
+
 use ratatui::{
     Frame,
     crossterm::event::{self, Event, KeyEventKind},
@@ -5,16 +7,18 @@ use ratatui::{
 };
 
 use crate::tui::{
-    client::{Stats, TableData},
-    handler::AppAction,
+    client::{Api, Stats, TableData},
+    handler::{AppAction, ToastKind},
     terminal::Tui,
     theme::Theme,
+    toast::Toast,
 };
 
 pub mod client;
 pub mod handler;
 pub mod terminal;
 pub mod theme;
+pub mod toast;
 pub mod ui;
 
 #[derive(Debug, Clone, Copy)]
@@ -30,10 +34,18 @@ pub struct AppState {
     pub table_state: TableState,
     pub selected_problem: Option<TableData>,
     pub should_quit: bool,
+    pub api: Api,
+    pub toast: Option<Toast>,
+    pub action_tx: Sender<AppAction>,
 }
 
 impl AppState {
-    pub fn new(table_data: Vec<TableData>, stats: Stats) -> Self {
+    pub fn new(
+        table_data: Vec<TableData>,
+        stats: Stats,
+        api: Api,
+        action_tx: Sender<AppAction>,
+    ) -> Self {
         let mut table = TableState::default();
 
         let mode = AppMode::Dashboard;
@@ -51,6 +63,9 @@ impl AppState {
             table_state: table,
             selected_problem,
             should_quit: false,
+            api,
+            toast: None,
+            action_tx,
         }
     }
 
@@ -65,16 +80,52 @@ impl AppState {
                     self.mode = AppMode::Review;
                 }
             }
-            AppAction::SubmitRating(_rating) => {
-                //TODO: Post /review { problem_id, rating }
-                self.mode = AppMode::Dashboard;
-                self.selected_problem = None;
-            }
+
             AppAction::CloseReview => {
                 self.mode = AppMode::Dashboard;
                 self.selected_problem = None;
             }
-            AppAction::None => (),
+
+            AppAction::SubmitRating(review) => {
+                if let Some(problem) = &self.selected_problem {
+                    self.toast = Some(Toast::new("submitting...", ToastKind::Info, 10));
+
+                    let api = self.api.clone();
+                    let tx = self.action_tx.clone();
+                    let problem_id = problem.problem_id;
+
+                    std::thread::spawn(move || match api.submit_review(problem_id, review) {
+                        Ok(()) => {
+                            let _ = tx.send(AppAction::ReviewSubmitted);
+                            let _ = tx.send(AppAction::ShowToast {
+                                message: "review submitted!".into(),
+                                kind: ToastKind::Success,
+                            });
+                        }
+                        Err(e) => {
+                            let _ = tx.send(AppAction::ShowToast {
+                                message: format!("failed: {e}"),
+                                kind: ToastKind::Error,
+                            });
+                        }
+                    });
+                }
+            }
+
+            AppAction::ReviewSubmitted => {
+                self.mode = AppMode::Dashboard;
+                self.selected_problem = None;
+            }
+
+            AppAction::ShowToast { message, kind } => {
+                self.toast = Some(Toast::new(message, kind, 3));
+            }
+
+            AppAction::ClearToast => {
+                self.toast = None;
+            }
+
+            AppAction::None => {}
         }
     }
 }
@@ -83,7 +134,6 @@ fn render(frame: &mut Frame, state: &mut AppState, theme: &Theme) {
     match state.mode {
         AppMode::Dashboard => {
             let (stats, table, footer) = ui::area(frame.area());
-
             ui::stats::render_stats(frame, stats, state, theme);
             ui::table::render_table(frame, table, state, theme);
             ui::footer::render_footer(frame, footer, state, theme);
@@ -95,18 +145,39 @@ fn render(frame: &mut Frame, state: &mut AppState, theme: &Theme) {
             }
         }
     }
+
+    if let Some(toast) = &state.toast
+        && !toast.is_expired()
+    {
+        ui::toast::render_toast(frame, toast, theme);
+    }
 }
 
-pub fn run(mut state: AppState, terminal: &mut Tui, theme: &Theme) -> color_eyre::Result<()> {
+pub fn run(
+    mut state: AppState,
+    terminal: &mut Tui,
+    theme: &Theme,
+    action_rx: Receiver<AppAction>,
+) -> color_eyre::Result<()> {
     while !state.should_quit {
         terminal.draw(|frame| render(frame, &mut state, theme))?;
 
-        match event::read()? {
-            Event::Key(key) if key.kind == KeyEventKind::Press => {
-                let action = handler::map_event(key, &state.mode);
-                state.update(action);
-            }
-            _ => {}
+        while let Ok(action) = action_rx.try_recv() {
+            state.update(action);
+        }
+
+        if let Some(toast) = &state.toast
+            && toast.is_expired()
+        {
+            state.toast = None;
+        }
+
+        if event::poll(std::time::Duration::from_millis(50))?
+            && let Event::Key(key) = event::read()?
+            && key.kind == KeyEventKind::Press
+        {
+            let action = handler::map_event(key, &state.mode);
+            state.update(action);
         }
     }
     Ok(())
