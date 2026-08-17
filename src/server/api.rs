@@ -1,6 +1,9 @@
 use anyhow::Result;
-use axum::{Json, extract::State};
-use chrono::{Duration, Local, NaiveDate};
+use axum::{Json, extract::State, response::IntoResponse};
+use chrono::{Duration, Local, NaiveDate, NaiveDateTime, Utc};
+use fsrs::{FSRS, MemoryState};
+use reqwest::StatusCode;
+use serde::Deserialize;
 use sqlx::SqlitePool;
 
 use crate::server::{
@@ -8,6 +11,19 @@ use crate::server::{
     db,
     error::ServerError,
 };
+
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub struct ReviewPayload {
+    pub problem_id: i64,
+    pub review: u8,
+}
+
+#[derive(Debug)]
+pub struct CalculatedData {
+    pub stability: f32,
+    pub difficulty: f32,
+    pub due_date: NaiveDateTime,
+}
 
 pub async fn get_dashboard(
     State(pool): State<SqlitePool>,
@@ -40,6 +56,23 @@ pub async fn get_stat_cards_data(
     }))
 }
 
+pub async fn submit_review(
+    State(pool): State<SqlitePool>,
+    Json(payload): Json<ReviewPayload>,
+) -> Result<impl IntoResponse, ServerError> {
+    tracing::info!(
+        "problem-id={}, review={}",
+        payload.problem_id,
+        payload.review
+    );
+
+    let calculated_fsrs = calculate_fsrs(&payload, &pool).await?;
+
+    db::submit_review_update_fsrs(&pool, payload, calculated_fsrs).await?;
+
+    Ok(StatusCode::OK)
+}
+
 fn calculate_streak(dates: Vec<NaiveDate>, today: NaiveDate) -> i64 {
     let start_from = if dates.first() == Some(&today) {
         today
@@ -60,4 +93,50 @@ fn calculate_streak(dates: Vec<NaiveDate>, today: NaiveDate) -> i64 {
     }
 
     streak
+}
+
+async fn calculate_fsrs(
+    payload: &ReviewPayload,
+    pool: &SqlitePool,
+) -> Result<CalculatedData, ServerError> {
+    const DESIRED_RETENTION: f32 = 0.9;
+    let fsrs = FSRS::default();
+
+    tracing::debug!("fetching calcualtion data from db");
+
+    let (stability, difficulty, last_sync_at) =
+        db::fetch_calculation_data_by_problem_id(pool, payload.problem_id).await?;
+
+    let previous = if stability > 0.0 {
+        Some(MemoryState {
+            stability,
+            difficulty,
+        })
+    } else {
+        None
+    };
+
+    let days_elapsed = match last_sync_at {
+        Some(last) if stability > 0.0 => (Utc::now().naive_local() - last).num_days().max(0) as u32,
+        _ => 0,
+    };
+
+    let next_states = fsrs.next_states(previous, DESIRED_RETENTION, days_elapsed)?;
+
+    let chosen = match payload.review {
+        1 => next_states.again,
+        2 => next_states.hard,
+        3 => next_states.good,
+        4 => next_states.easy,
+        _ => next_states.good,
+    };
+
+    let interval = chosen.interval.round().max(1.0) as u32;
+    let due_date = Utc::now().naive_local() + Duration::days(interval as i64);
+
+    Ok(CalculatedData {
+        stability: chosen.memory.stability,
+        difficulty: chosen.memory.difficulty,
+        due_date,
+    })
 }

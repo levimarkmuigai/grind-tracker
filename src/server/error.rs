@@ -14,6 +14,9 @@ pub enum ServerError {
 
     #[error("serde_json: {0}")]
     Parse(#[from] serde_json::Error),
+
+    #[error("fsrs: {0}")]
+    Frse(#[from] fsrs::FSRSError),
 }
 
 impl IntoResponse for ServerError {

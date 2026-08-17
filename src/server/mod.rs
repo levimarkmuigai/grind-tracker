@@ -1,6 +1,9 @@
 use std::env;
 
-use axum::{Router, routing::get};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 
 use crate::server::leetcode_client::seed_db_if_needed;
@@ -50,5 +53,6 @@ fn build_router(pool: SqlitePool) -> Router {
     Router::new()
         .route("/api/dashboard", get(api::get_dashboard))
         .route("/api/stats", get(api::get_stat_cards_data))
+        .route("/api/review", post(api::submit_review))
         .with_state(pool)
 }
