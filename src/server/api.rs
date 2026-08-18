@@ -47,7 +47,15 @@ pub async fn get_stat_cards_data(
 
     let today = Local::now().naive_local().date();
 
-    let streak = calculate_streak(dates, today);
+    let streak = calculate_streak(dates.clone(), today);
+
+    tracing::info!(
+        due_today = due_today,
+        reviewed = reviewed,
+        streak = streak,
+        rust_today = %today,
+        db_dates = ?dates,
+    );
 
     Ok(Json(Stats {
         due_today,

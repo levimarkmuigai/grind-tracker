@@ -38,6 +38,14 @@ pub async fn run_server() {
 
 fn build_pool(db_url: &str) -> SqlitePool {
     SqlitePoolOptions::new()
+        .after_connect(|conn, _| {
+            Box::pin(async move {
+                sqlx::query("PRAGMA foreign_keys = ON;")
+                    .execute(&mut *conn)
+                    .await?;
+                Ok(())
+            })
+        })
         .max_connections(8)
         .connect_lazy(db_url)
         .expect("failed to build connection pool")

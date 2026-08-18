@@ -183,13 +183,21 @@ pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, Serve
 }
 
 pub async fn fetch_due_today_reviewed(pool: &SqlitePool) -> Result<(i64, i64), ServerError> {
+    let now = chrono::Local::now().naive_local();
+    let start_day = now.date().and_hms_opt(0, 0, 0).unwrap();
+    let end_day = start_day + chrono::Duration::days(1);
+    let in_24h = now + chrono::Duration::hours(24);
+
     let (due_today, reviewed): (i64, i64) = sqlx::query_as(
         r#"
         SELECT
-        (SELECT COUNT(*) FROM fsrs_cards WHERE DATE(due_date) <= DATE('now', 'localtime')),
-        (SELECT COUNT(*) FROM review_logs WHERE DATE(reviewed_at) = DATE('now', 'localtime'))
+        (SELECT COUNT(*) FROM fsrs_cards WHERE due_date <= ?),
+        (SELECT COUNT(*) FROM review_logs WHERE reviewed_at >= ? AND reviewed_at < ?)
         "#,
     )
+    .bind(in_24h)
+    .bind(start_day)
+    .bind(end_day)
     .fetch_one(pool)
     .await?;
 

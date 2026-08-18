@@ -26,7 +26,7 @@ pub fn render_stats(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
 
     let due_date_text = vec![
         Line::from(Span::styled("due today", Style::new().fg(theme.ink))),
-        Line::from(Span::styled(stats.reviewed.to_string(), Style::new().fg(theme.ink)).bold()),
+        Line::from(Span::styled(stats.due_today.to_string(), Style::new().fg(theme.ink)).bold()),
     ];
 
     let reviewed_text = vec![
@@ -35,9 +35,9 @@ pub fn render_stats(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
     ];
 
     let streak_string = if stats.streak == 1 {
-        format!("{} day", stats.reviewed)
+        format!("{} day", stats.streak)
     } else {
-        format!("{} days", stats.reviewed)
+        format!("{} days", stats.streak)
     };
 
     let streak_text = vec![
