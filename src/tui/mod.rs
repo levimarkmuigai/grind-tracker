@@ -101,6 +101,8 @@ impl AppState {
                                 message: "review submitted!".into(),
                                 kind: ToastKind::Success,
                             });
+
+                            let _ = tx.send(AppAction::RefreshData);
                         }
                         Err(e) => {
                             let _ = tx.send(AppAction::ShowToast {
@@ -115,6 +117,32 @@ impl AppState {
             AppAction::ReviewSubmitted => {
                 self.mode = AppMode::Dashboard;
                 self.selected_problem = None;
+            }
+
+            AppAction::RefreshData => {
+                let api = self.api.clone();
+                let tx = self.action_tx.clone();
+
+                std::thread::spawn(move || match api.seed_dash_data() {
+                    Ok((table_data, stats)) => {
+                        let _ = tx.send(AppAction::RefreshedData { table_data, stats });
+                    }
+                    Err(e) => {
+                        let _ = tx.send(AppAction::ShowToast {
+                            message: format!("refresh failed: {e}"),
+                            kind: ToastKind::Error,
+                        });
+                    }
+                });
+            }
+
+            AppAction::RefreshedData { table_data, stats } => {
+                self.table_data = table_data;
+                self.stats = stats;
+
+                if !self.table_data.is_empty() {
+                    self.table_state.select(Some(0));
+                }
             }
 
             AppAction::ShowToast { message, kind } => {

@@ -1,4 +1,7 @@
-use crate::tui::AppMode;
+use crate::tui::{
+    AppMode,
+    client::{Stats, TableData},
+};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 #[derive(Debug, PartialEq)]
@@ -10,7 +13,15 @@ pub enum AppAction {
     SubmitRating(u8),
     CloseReview,
     ReviewSubmitted,
-    ShowToast { message: String, kind: ToastKind },
+    RefreshData,
+    RefreshedData {
+        table_data: Vec<TableData>,
+        stats: Stats,
+    },
+    ShowToast {
+        message: String,
+        kind: ToastKind,
+    },
     ClearToast,
     None,
 }
