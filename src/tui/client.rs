@@ -29,7 +29,7 @@ pub struct TableData {
     pub diff: Level,
     pub topic: String,
     pub state: i64,
-    pub due: NaiveDateTime,
+    pub due: Option<NaiveDateTime>,
     pub reps: i64,
     pub lapses: i64,
 }

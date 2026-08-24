@@ -32,7 +32,11 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
 
             let (state_label, state_style) = state_style(x.state, theme);
 
-            let due_style = due_date_style(x.due, now, theme);
+            let due_style = if let Some(date) = x.due {
+                due_date_style(date, now, theme)
+            } else {
+                Style::default()
+            };
 
             Row::new(vec![
                 Cell::from(x.frontend_id.clone()),
@@ -40,8 +44,13 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
                 Cell::from(x.diff.as_str().to_string()).style(diff_style),
                 Cell::from(truncate(&x.topic, 60)),
                 Cell::from(state_label).style(state_style),
-                Cell::from(format_due_date(x.due, now)).style(due_style),
+                if let Some(date) = x.due {
+                    Cell::from(format_due_date(date, now)).style(due_style)
+                } else {
+                    Cell::from("start")
+                },
             ])
+            .height(2)
         })
         .collect();
 
@@ -83,11 +92,12 @@ fn state_style(state: i64, theme: &Theme) -> (&'static str, Style) {
 }
 
 fn format_due_date(due: NaiveDateTime, now: NaiveDateTime) -> String {
-    let delta = due.signed_duration_since(now);
-    match delta.num_hours() {
-        h if h < 0 => format!("{}d", -delta.num_days().max(1)),
-        h if h < 24 => "today".into(),
-        h => format!("in {}d", h / 24),
+    let days_diff = (due.date() - now.date()).num_days();
+
+    match days_diff {
+        d if d < 0 => format!("{}", -d),
+        0 => "today".into(),
+        d => format!("in {}d", d),
     }
 }
 

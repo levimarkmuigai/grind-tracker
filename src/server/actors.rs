@@ -58,7 +58,7 @@ pub struct FsrsCard {
     pub problem_id: i64,
     pub stability: f64,
     pub difficulty: f64,
-    pub due_date: NaiveDateTime,
+    pub due_date: Option<NaiveDateTime>,
     pub state: i64,
     pub reps: i64,
     pub lapses: i64,
@@ -73,7 +73,7 @@ pub struct TableData {
     pub diff: Level,
     pub topic: String,
     pub state: i64,
-    pub due: NaiveDateTime,
+    pub due: Option<NaiveDateTime>,
     pub reps: i64,
     pub lapses: i64,
 }

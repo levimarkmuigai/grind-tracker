@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{Local, NaiveDate, NaiveDateTime, Utc};
 use sqlx::SqlitePool;
 
 use crate::server::{
@@ -88,7 +88,7 @@ pub async fn fetch_card_by_id(pool: &SqlitePool, id: i64) -> Result<FsrsCard, Se
             problem_id,
             stability,
             difficulty,
-            due_date AS "due_date: chrono::NaiveDateTime",
+            due_date AS "due_date?: chrono::NaiveDateTime",
             state,
             reps,
             lapses,
@@ -127,11 +127,11 @@ pub async fn fetch_all_problems(pool: &SqlitePool) -> Result<Vec<LeetcodeProblem
         LeetcodeProblem,
         r#"SELECT 
             id, 
-            frontend_id AS "frontend_id!", 
-            title AS "title!", 
-            slug AS "slug!", 
-            topic_tag AS "topic_tag!", 
-            level AS "level!: Level" 
+            frontend_id AS "frontend_id!",
+            title AS "title!",
+            slug AS "slug!",
+            topic_tag AS "topic_tag!",
+            level AS "level!: Level"
         FROM leetcode_problems"#
     )
     .fetch_all(pool)
@@ -148,7 +148,7 @@ pub async fn fetch_all_cards(pool: &SqlitePool) -> Result<Vec<FsrsCard>, ServerE
             problem_id,
             stability,
             difficulty,
-            due_date AS "due_date: chrono::NaiveDateTime",
+            due_date AS "due_date?: chrono::NaiveDateTime",
             state,
             reps,
             lapses,
@@ -162,10 +162,14 @@ pub async fn fetch_all_cards(pool: &SqlitePool) -> Result<Vec<FsrsCard>, ServerE
 }
 
 pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, ServerError> {
-    Ok(sqlx::query_as!(
+    const DAILY_CARD_LIMIT: i64 = 5;
+    const HARD_UNLOCK_THRESHOLD: i64 = 10;
+
+    let mut queue = sqlx::query_as!(
         TableData,
-        r#"SELECT
-        p.id AS "problem_id",
+        r#"
+    SELECT
+     p.id AS "problem_id",
             p.frontend_id AS "frontend_id!",
             p.title AS "title",
             p.topic_tag AS "topic!",
@@ -173,31 +177,87 @@ pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, Serve
             f.state AS "state!",
             f.reps AS "reps",
             f.lapses AS "lapses",
-            f.due_date AS "due!: chrono::NaiveDateTime"
-            FROM leetcode_problems p
-            JOIN fsrs_cards f ON f.problem_id = p.id
-            "#
+            f.due_date AS "due?: chrono::NaiveDateTime"
+    FROM leetcode_problems p
+    JOIN fsrs_cards f ON f.problem_id = p.id
+    WHERE f.state > 0
+    AND f.due_date <= datetime('now')
+    ORDER BY f.due_date ASC
+        "#
     )
     .fetch_all(pool)
-    .await?)
+    .await?;
+
+    let new_cards = sqlx::query_as!(
+        TableData,
+        r#"
+    WITH medium_progress AS (
+    SELECT COUNT(*) AS count
+    FROM fsrs_cards f
+    JOIN leetcode_problems p ON p.id = f.problem_id
+    WHERE f.state > 0
+    AND p.level = 'Medium'
+    )
+    SELECT
+     p.id AS "problem_id",
+            p.frontend_id AS "frontend_id!",
+            p.title AS "title",
+            p.topic_tag AS "topic!",
+            p.level AS "diff!: Level",
+            f.state AS "state!",
+            f.reps AS "reps",
+            f.lapses AS "lapses",
+            f.due_date AS "due?: chrono::NaiveDateTime"
+            FROM leetcode_problems p
+            JOIN fsrs_cards f ON f.problem_id  = p.id
+            WHERE f.state = 0
+            AND (
+            p.level != 'Hard'
+            OR (SELECT count FROM medium_progress) >= ?
+            )
+            ORDER BY
+            CASE p.level
+            WHEN 'Easy' THEN 1
+            WHEN 'Medium' THEN 2
+            WHEN 'Hard' THEN 3
+            END,
+            p.id ASC
+            LIMIT ?
+        "#,
+        HARD_UNLOCK_THRESHOLD,
+        DAILY_CARD_LIMIT
+    )
+    .fetch_all(pool)
+    .await?;
+
+    queue.extend(new_cards);
+
+    Ok(queue)
 }
 
 pub async fn fetch_due_today_reviewed(pool: &SqlitePool) -> Result<(i64, i64), ServerError> {
-    let now = chrono::Local::now().naive_local();
-    let start_day = now.date().and_hms_opt(0, 0, 0).unwrap();
-    let end_day = start_day + chrono::Duration::days(1);
-    let in_24h = now + chrono::Duration::hours(24);
+    let local_now = Local::now();
+
+    let start_day_utc = local_now
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_local_timezone(Local)
+        .unwrap()
+        .with_timezone(&Utc);
+
+    let end_day_utc = start_day_utc + chrono::Duration::days(1);
 
     let (due_today, reviewed): (i64, i64) = sqlx::query_as(
         r#"
         SELECT
-        (SELECT COUNT(*) FROM fsrs_cards WHERE due_date <= ?),
-        (SELECT COUNT(*) FROM review_logs WHERE reviewed_at >= ? AND reviewed_at < ?)
+        (SELECT COUNT(*) FROM fsrs_cards WHERE due_date IS NOT NULL AND due_date <= ?),
+        (SELECT COUNT(DISTINCT problem_id) FROM review_logs WHERE reviewed_at >= ? AND reviewed_at < ?)
         "#,
     )
-    .bind(in_24h)
-    .bind(start_day)
-    .bind(end_day)
+    .bind(end_day_utc)
+    .bind(start_day_utc)
+    .bind(end_day_utc)
     .fetch_one(pool)
     .await?;
 
