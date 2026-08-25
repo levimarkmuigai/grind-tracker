@@ -1,6 +1,6 @@
 use anyhow::Result;
 use axum::{Json, extract::State, response::IntoResponse};
-use chrono::{Duration, Local, NaiveDate, NaiveDateTime, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use fsrs::{FSRS, MemoryState};
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -22,7 +22,7 @@ pub struct ReviewPayload {
 pub struct CalculatedData {
     pub stability: f32,
     pub difficulty: f32,
-    pub due_date: NaiveDateTime,
+    pub due_date: DateTime<Utc>,
 }
 
 pub async fn get_dashboard(
@@ -45,17 +45,9 @@ pub async fn get_stat_cards_data(
 
     let dates = dates?;
 
-    let today = Local::now().naive_local().date();
+    let today = Utc::now().date_naive();
 
     let streak = calculate_streak(dates.clone(), today);
-
-    tracing::info!(
-        due_today = due_today,
-        reviewed = reviewed,
-        streak = streak,
-        rust_today = %today,
-        db_dates = ?dates,
-    );
 
     Ok(Json(Stats {
         due_today,
@@ -95,7 +87,7 @@ fn calculate_streak(dates: Vec<NaiveDate>, today: NaiveDate) -> i64 {
         if date == expected {
             streak += 1;
             expected -= Duration::days(1);
-        } else {
+        } else if date < expected {
             break;
         }
     }
@@ -110,8 +102,6 @@ async fn calculate_fsrs(
     const DESIRED_RETENTION: f32 = 0.9;
     let fsrs = FSRS::default();
 
-    tracing::debug!("fetching calcualtion data from db");
-
     let (stability, difficulty, last_sync_at) =
         db::fetch_calculation_data_by_problem_id(pool, payload.problem_id).await?;
 
@@ -125,7 +115,7 @@ async fn calculate_fsrs(
     };
 
     let days_elapsed = match last_sync_at {
-        Some(last) if stability > 0.0 => (Utc::now().naive_local() - last).num_days().max(0) as u32,
+        Some(last) if stability > 0.0 => (Utc::now() - last).num_days().max(0) as u32,
         _ => 0,
     };
 
@@ -140,7 +130,7 @@ async fn calculate_fsrs(
     };
 
     let interval = chosen.interval.round().max(1.0) as u32;
-    let due_date = Utc::now().naive_local() + Duration::days(interval as i64);
+    let due_date = Utc::now() + chrono::Duration::days(interval as i64);
 
     Ok(CalculatedData {
         stability: chosen.memory.stability,

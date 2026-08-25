@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +29,7 @@ pub struct TableData {
     pub diff: Level,
     pub topic: String,
     pub state: i64,
-    pub due: Option<NaiveDateTime>,
+    pub due: Option<DateTime<Utc>>,
     pub reps: i64,
     pub lapses: i64,
 }

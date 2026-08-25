@@ -1,9 +1,9 @@
 use anyhow::Result;
-use chrono::{Local, NaiveDate, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::SqlitePool;
 
 use crate::server::{
-    actors::{FsrsCard, LeetcodeProblem, Level, TableData},
+    actors::{FsrsCard, FsrsCardRow, LeetcodeProblem, Level, TableData, TableDataRow},
     api::{CalculatedData, ReviewPayload},
     error::ServerError,
 };
@@ -81,36 +81,38 @@ pub async fn pareto50_count(pool: &SqlitePool) -> Result<i64, ServerError> {
 }
 
 pub async fn fetch_card_by_id(pool: &SqlitePool, id: i64) -> Result<FsrsCard, ServerError> {
-    Ok(sqlx::query_as!(
-        FsrsCard,
+    let row = sqlx::query_as!(
+        FsrsCardRow,
         r#"SELECT
             id,
             problem_id,
             stability,
             difficulty,
-            due_date AS "due_date?: chrono::NaiveDateTime",
+            due_date,
             state,
             reps,
             lapses,
-            last_sync_at AS "last_sync!: chrono::NaiveDateTime"
+            last_sync_at
             FROM fsrs_cards
             WHERE id = $1"#,
         id
     )
     .fetch_one(pool)
-    .await?)
+    .await?;
+
+    Ok(row.into())
 }
 
 pub async fn fetch_calculation_data_by_problem_id(
     pool: &SqlitePool,
     problem_id: i64,
-) -> Result<(f32, f32, Option<NaiveDateTime>), ServerError> {
+) -> Result<(f32, f32, Option<DateTime<Utc>>), ServerError> {
     let row = sqlx::query!(
         r#"
     SELECT
     stability AS "stability: f32",
     difficulty AS "difficulty: f32",
-    last_sync_at AS "last_sync_at: chrono::NaiveDateTime"
+    last_sync_at
     FROM fsrs_cards
     WHERE problem_id = $1
         "#,
@@ -119,7 +121,11 @@ pub async fn fetch_calculation_data_by_problem_id(
     .fetch_one(pool)
     .await?;
 
-    Ok((row.stability, row.difficulty, row.last_sync_at))
+    let last_sync_at = row
+        .last_sync_at
+        .and_then(|ts| DateTime::from_timestamp(ts, 0));
+
+    Ok((row.stability, row.difficulty, last_sync_at))
 }
 
 pub async fn fetch_all_problems(pool: &SqlitePool) -> Result<Vec<LeetcodeProblem>, ServerError> {
@@ -141,32 +147,32 @@ pub async fn fetch_all_problems(pool: &SqlitePool) -> Result<Vec<LeetcodeProblem
 }
 
 pub async fn fetch_all_cards(pool: &SqlitePool) -> Result<Vec<FsrsCard>, ServerError> {
-    let cards = sqlx::query_as!(
-        FsrsCard,
+    let row = sqlx::query_as!(
+        FsrsCardRow,
         r#"SELECT
             id,
             problem_id,
             stability,
             difficulty,
-            due_date AS "due_date?: chrono::NaiveDateTime",
+            due_date,
             state,
             reps,
             lapses,
-            last_sync_at AS "last_sync!: chrono::NaiveDateTime"
+            last_sync_at
             FROM fsrs_cards"#
     )
     .fetch_all(pool)
     .await?;
 
-    Ok(cards)
+    Ok(row.into_iter().map(|r| r.into()).collect())
 }
 
 pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, ServerError> {
     const DAILY_CARD_LIMIT: i64 = 5;
     const HARD_UNLOCK_THRESHOLD: i64 = 10;
 
-    let mut queue = sqlx::query_as!(
-        TableData,
+    let due_rows = sqlx::query_as!(
+        TableDataRow,
         r#"
     SELECT
      p.id AS "problem_id",
@@ -177,19 +183,19 @@ pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, Serve
             f.state AS "state!",
             f.reps AS "reps",
             f.lapses AS "lapses",
-            f.due_date AS "due?: chrono::NaiveDateTime"
+            f.due_date AS "due"
     FROM leetcode_problems p
     JOIN fsrs_cards f ON f.problem_id = p.id
     WHERE f.state > 0
-    AND f.due_date <= datetime('now')
+    AND f.due_date <= unixepoch()
     ORDER BY f.due_date ASC
         "#
     )
     .fetch_all(pool)
     .await?;
 
-    let new_cards = sqlx::query_as!(
-        TableData,
+    let new_rows = sqlx::query_as!(
+        TableDataRow,
         r#"
     WITH medium_progress AS (
     SELECT COUNT(*) AS count
@@ -207,7 +213,7 @@ pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, Serve
             f.state AS "state!",
             f.reps AS "reps",
             f.lapses AS "lapses",
-            f.due_date AS "due?: chrono::NaiveDateTime"
+            f.due_date AS "due"
             FROM leetcode_problems p
             JOIN fsrs_cards f ON f.problem_id  = p.id
             WHERE f.state = 0
@@ -230,23 +236,18 @@ pub async fn fetch_table_data(pool: &SqlitePool) -> Result<Vec<TableData>, Serve
     .fetch_all(pool)
     .await?;
 
-    queue.extend(new_cards);
+    let mut queue: Vec<TableData> = due_rows.into_iter().map(Into::into).collect();
+
+    queue.extend(new_rows.into_iter().map(Into::into));
 
     Ok(queue)
 }
 
 pub async fn fetch_due_today_reviewed(pool: &SqlitePool) -> Result<(i64, i64), ServerError> {
-    let local_now = Local::now();
+    let now = Utc::now();
 
-    let start_day_utc = local_now
-        .date_naive()
-        .and_hms_opt(0, 0, 0)
-        .unwrap()
-        .and_local_timezone(Local)
-        .unwrap()
-        .with_timezone(&Utc);
-
-    let end_day_utc = start_day_utc + chrono::Duration::days(1);
+    let start = now.date_naive().and_hms_opt(0, 0, 0).unwrap().and_utc();
+    let end = start + chrono::Duration::days(1);
 
     let (due_today, reviewed): (i64, i64) = sqlx::query_as(
         r#"
@@ -255,9 +256,9 @@ pub async fn fetch_due_today_reviewed(pool: &SqlitePool) -> Result<(i64, i64), S
         (SELECT COUNT(DISTINCT problem_id) FROM review_logs WHERE reviewed_at >= ? AND reviewed_at < ?)
         "#,
     )
-    .bind(end_day_utc)
-    .bind(start_day_utc)
-    .bind(end_day_utc)
+    .bind(now.timestamp())
+    .bind(start.timestamp())
+    .bind(end.timestamp())
     .fetch_one(pool)
     .await?;
 
@@ -265,9 +266,9 @@ pub async fn fetch_due_today_reviewed(pool: &SqlitePool) -> Result<(i64, i64), S
 }
 
 pub async fn fetch_streak_dates(pool: &SqlitePool) -> Result<Vec<NaiveDate>, ServerError> {
-    let dates: Vec<NaiveDate> = sqlx::query_scalar::<_, NaiveDate>(
+    let dates: Vec<NaiveDate> = sqlx::query_scalar(
         r#"
-    SELECT DISTINCT DATE(reviewed_at) FROM review_logs  ORDER BY DATE(reviewed_at) DESC
+    SELECT DISTINCT DATE(reviewed_at, 'unixepoch') as d FROM review_logs  ORDER BY d DESC
         "#,
     )
     .fetch_all(pool)
@@ -283,6 +284,8 @@ pub async fn submit_review_update_fsrs(
 ) -> Result<(), ServerError> {
     let mut tx = pool.begin().await?;
 
+    let due_date = fsrs_data.due_date.timestamp();
+
     sqlx::query!(
         r#"
     UPDATE fsrs_cards
@@ -294,7 +297,7 @@ pub async fn submit_review_update_fsrs(
         "#,
         fsrs_data.stability,
         fsrs_data.difficulty,
-        fsrs_data.due_date,
+        due_date,
         review_data.problem_id
     )
     .execute(&mut *tx)

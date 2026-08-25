@@ -1,4 +1,4 @@
-use chrono::{NaiveDateTime, Utc};
+use chrono::{NaiveDate, Utc};
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
@@ -18,7 +18,7 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
         .bold()
         .height(1);
 
-    let now = Utc::now().naive_utc();
+    let now = Utc::now().date_naive();
 
     let rows: Vec<Row> = state
         .table_data
@@ -33,7 +33,7 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
             let (state_label, state_style) = state_style(x.state, theme);
 
             let due_style = if let Some(date) = x.due {
-                due_date_style(date, now, theme)
+                due_date_style(date.date_naive(), now, theme)
             } else {
                 Style::default()
             };
@@ -45,7 +45,7 @@ pub fn render_table(frame: &mut Frame, area: Rect, state: &mut AppState, theme: 
                 Cell::from(truncate(&x.topic, 60)),
                 Cell::from(state_label).style(state_style),
                 if let Some(date) = x.due {
-                    Cell::from(format_due_date(date, now)).style(due_style)
+                    Cell::from(format_due_date(date.date_naive(), now)).style(due_style)
                 } else {
                     Cell::from("start")
                 },
@@ -91,17 +91,18 @@ fn state_style(state: i64, theme: &Theme) -> (&'static str, Style) {
     }
 }
 
-fn format_due_date(due: NaiveDateTime, now: NaiveDateTime) -> String {
-    let days_diff = (due.date() - now.date()).num_days();
+fn format_due_date(due: NaiveDate, now: NaiveDate) -> String {
+    let days_diff = (due - now).num_days();
 
     match days_diff {
-        d if d < 0 => format!("{}", -d),
+        d if d < 0 => format!("{}d ago", d),
         0 => "today".into(),
+        1 => "tomorrow".into(),
         d => format!("in {}d", d),
     }
 }
 
-fn due_date_style(due: NaiveDateTime, now: NaiveDateTime, theme: &Theme) -> Style {
+fn due_date_style(due: NaiveDate, now: NaiveDate, theme: &Theme) -> Style {
     if due < now {
         Style::new().fg(theme.red_ink).add_modifier(Modifier::BOLD)
     } else {
