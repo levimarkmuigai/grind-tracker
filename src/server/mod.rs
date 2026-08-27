@@ -15,9 +15,15 @@ pub mod error;
 pub mod leetcode_client;
 
 pub async fn run_server() {
-    let db_url = env::var("DATABASE_URL").expect("database url not found");
-    let addr = env::var("ADDR").expect("connection addr not found");
+    let db_url = env::var("DATABASE_URL")
+        .expect("DATABASE_URL variable must be set (e.g. sqlite:data/app.db)");
+    let addr = env::var("ADDR").unwrap_or_else(|_| "127.0.0.0.1:3000".to_string());
     let pool = build_pool(&db_url);
+
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("failed to run migrations");
 
     if let Err(err) = seed_db_if_needed(&pool).await {
         tracing::error!("failed to initialize problem set {:?}", err);
@@ -59,6 +65,7 @@ async fn signal() {
 
 fn build_router(pool: SqlitePool) -> Router {
     Router::new()
+        .route("/health", get(|| async { "ok" }))
         .route("/api/dashboard", get(api::get_dashboard))
         .route("/api/stats", get(api::get_stat_cards_data))
         .route("/api/review", post(api::submit_review))
