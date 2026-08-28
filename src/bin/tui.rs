@@ -3,6 +3,8 @@ use std::sync::mpsc;
 use grind_tracker::tui::{self, client::Api, terminal};
 
 fn main() -> color_eyre::Result<()> {
+    dotenvy::dotenv().ok();
+
     let api = Api::new()?;
 
     let (table_data, stats) = api.seed_dash_data()?;

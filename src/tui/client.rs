@@ -1,8 +1,8 @@
+use std::env;
+
 use chrono::{DateTime, Utc};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-
-const BASE_URL: &str = "http://localhost:3000";
 
 #[derive(Debug, PartialEq, Clone, Deserialize)]
 pub enum Level {
@@ -50,7 +50,9 @@ pub struct ReviewPayload {
 #[derive(Clone)]
 pub struct Api {
     client: Client,
-    base: String,
+    dashboard_url: String,
+    stats_url: String,
+    review_url: String,
 }
 
 impl Api {
@@ -60,21 +62,23 @@ impl Api {
             .build()?;
         Ok(Self {
             client,
-            base: BASE_URL.to_string(),
+            dashboard_url: env::var("DASH_URL").expect("dashboard endpoint not set"),
+            stats_url: env::var("STATS_URL").expect("stats endpoint not set"),
+            review_url: env::var("REVIEW_URL").expect("review endpoint not set"),
         })
     }
 
     pub fn seed_dash_data(&self) -> Result<(Vec<TableData>, Stats), reqwest::Error> {
         let table_data: Vec<TableData> = self
             .client
-            .get(format!("{}/api/dashboard", self.base))
+            .get(&self.dashboard_url)
             .send()?
             .error_for_status()?
             .json()?;
 
         let stats: Stats = self
             .client
-            .get(format!("{}/api/stats", self.base))
+            .get(&self.stats_url)
             .send()?
             .error_for_status()?
             .json()?;
@@ -86,7 +90,7 @@ impl Api {
         let payload = ReviewPayload { problem_id, review };
 
         self.client
-            .post(format!("{}/api/review", self.base))
+            .post(&self.review_url)
             .json(&payload)
             .send()?
             .error_for_status()?;
