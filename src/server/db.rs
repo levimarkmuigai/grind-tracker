@@ -68,7 +68,7 @@ pub async fn fetch_problem_by_id(
     .await?)
 }
 
-pub async fn pareto50_count(pool: &SqlitePool) -> Result<i64, ServerError> {
+pub async fn problem_count(pool: &SqlitePool) -> Result<i64, ServerError> {
     let count = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*) FROM leetcode_problems
