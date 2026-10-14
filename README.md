@@ -2,7 +2,11 @@
 
 A terminal app for practising DSA problems with spaced repetition. It keeps a problem set, schedules each problem's next review with [FSRS](https://github.com/open-spaced-repetition/fsrs-rs), and shows what is due, your stats and your progress in a TUI. A small Axum + SQLite server holds the data, so the same history is available from any machine.
 
-<!-- Add screenrecording -->
+
+
+https://github.com/user-attachments/assets/13071e07-d616-4195-9dda-45495b997130
+
+
 
 ## Why I built it
 
